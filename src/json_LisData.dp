@@ -1,0 +1,35 @@
+#! ./papi
+
+#  handle white characters
+white = [ \t\r\n] $ch -> $ch
+ow = ( white )* -> " "
+
+letter = [abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ] $c -> $c
+digit = [0123456789] $c -> $c
+
+atom_char = letter $c -> $c
+          | digit $c -> $c
+          | [=|,.+-_~!@#$%^&*(){}\[\]/><:;'? ] $c -> $c
+          | [\\] [rnt"\\] $c          -> ("\\", $c)
+
+# where
+escaped_character = [r] -> "\r"
+                  | [n] -> "\n"
+                  | [t] -> "\t"
+                  | ["] -> "\""
+                  | [\\] -> "\\"
+
+atom = ["] (atom_char $c)* ["] ->  ("\"", ($c)*, "\"")
+
+element = atom $a -> $a 
+        | lisp_list $L -> $L
+
+lisp_list =   [\[] 
+                (elem_seq $es)? ow
+              [\]] 
+               -> 
+                    ( "\n{", {$es}?, "}" )
+
+elem_seq = ow element $e (ow [,] ow element $ee)* -> {$e, {",", $ee}* }
+
+goal = elem_seq $l -> $l

@@ -1,0 +1,111 @@
+#! ./papi
+#
+#  Metagrammar language definition.
+#
+
+#  Source file position information -
+#  we use built-in productions ::input, ::line, ::column, 
+#  for geting the position as string data
+info = ::input $f ::line $line ::column $col ->  ($f, ":", $line, ":", $col)
+
+#  End of file:
+eof = !. -> ""
+
+#  White characters and comment definitions:
+white = [ \t\r\n]   -> ""
+      | comment     -> "" 
+
+#  Comments are shell-style:
+comment = "#" (!"\n" . $c)* "\n"   -> ("#", ($c)*)
+
+#  Optional sequence of white characters or comments:
+ow = (white)*       -> ""
+
+#  Grammar production (name and set of branches)
+production = info $i name $n ow "=" branches $bs -> [$i, "Production", $n, $bs]
+
+#  Single branch of production (phrase definition and output generating template) 
+branch =  info $i element_sequence $es "->" ow templ_element $t ->  
+                        [$i, "Branch", [$i, "Receipt", $es], $t]
+
+#  The sequence of branches separated by '|'
+branches = ow !branch                                ->  {}
+         | ow branch $b (ow "|" ow branch $bb)*      ->  {$b, {$bb}*}
+
+#  Elements of production branch
+element = info $i name $n (ow var $v)?               -> [$i, "ElementCall", $n, {$v}? ]
+        | info $i cstring $s (ow var $v)?            -> [$i, "ElementString", $s, {$v}? ]
+        | info $i "(" element_sequence $seq ")" ow repet $r  ->
+                        [$i, "ElementLoop", $r,
+                                [$i, "Receipt", $seq]]
+        | info $i "&" ow "(" element_sequence $seq ")" ->
+                        [$i, "ElementLoop", "&",
+                                [$i, "Receipt", $seq]]
+        | info $i "." (ow var $v)?                   -> [$i, "ElementAnyChar", {$v}? ]
+        | cclass $c                                  -> $c
+        | info $i "!" ow "(" element_sequence $seq ")" ->
+                        [$i, "ElementLoop", "!",
+                                [$i, "Receipt", $seq]]
+        | info $i "!" ow element $e                  -> [$i, "ElementLoop", "!", [$i, "Receipt", $e]]
+
+
+repet = rep $r ->   $r
+      | !rep ->   ":" 
+
+element_sequence = (ow element $e)* ow  ->  {$e}*
+
+cclchar = ![\[\]\r\n\\] . $c   -> $c
+       | "\\["                 -> "["
+       | "\\]"                 -> "]"
+       | "\\r"                 -> "\r"
+       | "\\t"                 -> "\t"
+       | "\\n"                 -> "\n"
+       | "\\\\"                -> "\\"
+
+cclass = info $i "[" (cclchar $c)* "]" (ow var $v)?  -> 
+                [$i, "ElementClass", ($c)*, {$v}? ]
+
+name = ("::" $p)? letter $a (alnum $b)*      -> (($p)?, $a, ($b)*)
+
+var = "$" name $n                 -> ("$", $n)
+
+letter = [abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_] $c -> $c
+digit = [0123456789] $c -> $c
+
+alnum = letter $c -> $c
+      | digit $c -> $c
+
+rep = [?+*] $c -> $c
+
+templ_element = info $i cstring $s -> [$i, "TemplateConst", $s]
+              | info $i var $v     -> [$i, "TemplateVariable", $v]
+              | info $i "(" templ_sequence $seq ow ")" ow repet $r    ->
+                        [$i, "TemplateLoop", $r, "string", $seq]
+              | info $i "{" templ_sequence $seq ow "}" ow repet $r    ->
+                        [$i, "TemplateLoop", $r, "sequence", $seq]
+              | info $i "[" templ_sequence $seq ow "]" ow repet $r    ->
+                        [$i, "TemplateLoop", $r, "list", $seq]
+              | info $i "&" ow "(" templ_sequence $seq ow ")"  ->
+                        [$i, "TemplateLoop", "&", "string", $seq]
+              | info $i "&" ow "{" templ_sequence $seq ow "}"  ->
+                        [$i, "TemplateLoop", "&", "sequence", $seq]
+              | info $i "&" ow "[" templ_sequence $seq ow "]" ->
+                        [$i, "TemplateLoop", "&", "list", $seq]
+
+templ_sequence = ow !templ_element    ->  {}
+               | ow  templ_element $e (ow "," ow templ_element $ee)*  ->
+                        {$e, {$ee}*}
+
+cstring = "\"" (cchar $c)* "\""   -> ($c)* 
+  
+cchar = !["\r\n\\] . $c        -> $c
+              | "\\\""         -> "\""
+              | "\\r"          -> "\r"
+              | "\\t"          -> "\t"
+              | "\\n"          -> "\n"
+              | "\\\\"         -> "\\"
+
+#  The grammar is a list of productions:
+goal = info $i (ow production $ps)+ ow eof -> 
+        [$i, "Grammar", {$ps}+ ]
+
