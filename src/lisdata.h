@@ -52,9 +52,20 @@ class  LisData:  private  std::variant<std::string, std::vector<LisData>>
                         return getList()[ 0 ]; 
                 };
 
-                std::string getString() const 
+                std::string getString( bool rigoristic = false ) const 
                 { 
-                        return std::get<std::string>( *this ); 
+                        try {
+                                return std::get<std::string>( *this ); 
+                        }
+                        catch ( const std::bad_variant_access& )
+                        {
+                                if ( rigoristic ) throw;
+
+                                std::string  s;
+                                for ( auto x: getList() )
+                                        s += x.getString();
+                                return s;
+                        }
                 };
 
                 const std::vector<LisData>  &getList() const 

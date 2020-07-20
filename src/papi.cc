@@ -46,7 +46,7 @@ OutputMode  recognize_output_mode( const std::vector<LisData> &data )
         if ( data.size() == 1 )
         {
                 try {
-                        data.at( 0 ).getString();
+                        data.at( 0 ).getString( true );
                         return  OutputMode::Text;
                 }
                 catch ( const std::bad_variant_access& )
@@ -100,7 +100,7 @@ std::string  output_as_string( const std::vector<LisData> &data )
         for ( const auto it: data )
         {
                 try {
-                        s += it.getString();
+                        s += it.getString( true );
                 }
                 catch ( const std::bad_variant_access& )
                 {
@@ -118,7 +118,7 @@ std::string  output_as_json_list( const std::vector<LisData> &data )
         for ( const auto it: data )
         {
                 try {
-                        s += sep + json_escape_string( it.getString() );
+                        s += sep + json_escape_string( it.getString( true ) );
                 }
                 catch ( const std::bad_variant_access& )
                 {
@@ -149,7 +149,7 @@ std::string  output_as_json_sequence( const std::vector<LisData> &data )
                         s += std::to_string( number++ ) + ": ";
 
                 try {
-                        s += json_escape_string( it.getString() );
+                        s += json_escape_string( it.getString( true ) );
                 }
                 catch ( const std::bad_variant_access& )
                 {
